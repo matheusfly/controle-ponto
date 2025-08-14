@@ -13,6 +13,8 @@ import { CalendarIcon, SunIcon, MoonIcon, ChartBarIcon, TableCellsIcon, PlusIcon
 import { ScheduleEntry, Teacher, WorkLog, AIOptimizationResponse, AISuggestion, AIGeneratedScheduleResponse, ClassType } from './types.ts';
 import { GoogleGenAI, Type } from "@google/genai";
 import AIDropdown from './components/AIDropdown.tsx';
+import AgentChatPanel, { ChatMessage } from './components/AgentChatPanel.tsx';
+import { api } from './services/api.ts';
 import PlanModeToggle from './components/PlanModeToggle.tsx';
 
 type View = 'dashboard' | 'schedule';
@@ -69,7 +71,7 @@ const App: React.FC = () => {
   const { isPlanningMode, activatePlanningMode, deactivatePlanningMode, setCurrentProposalId } = usePlanMode();
 
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-  const [view, setView] = useState<View>('dashboard');
+const [view, setView] = useState<View>('schedule');
   
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ScheduleEntry | null>(null);
@@ -90,7 +92,12 @@ const App: React.FC = () => {
 
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+const [generateError, setGenerateError] = useState<string | null>(null);
+
+  // -------------- Agent Chat State --------------
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const [generateResponse, setGenerateResponse] = useState<AIGeneratedScheduleResponse | null>(null);
 
   // State for CapacityProfileEditor
@@ -565,7 +572,10 @@ const App: React.FC = () => {
                     </nav>
 
                     <div className="flex items-center space-x-4">
-                        <AIDropdown onOptimize={handleAIOptimize} onGenerate={handleGenerateSchedule} />
+<AIDropdown onOptimize={handleAIOptimize} onGenerate={handleGenerateSchedule} />
+                        <button onClick={() => setIsChatOpen(true)} className="p-2 rounded-full bg-purple-600 text-white hover:bg-purple-700 transition">
+                            🤖
+                        </button>
                         <button
                             onClick={handleOpenNewClass}
                             className="flex items-center gap-2 bg-lime-green text-charcoal-black font-bold px-4 py-2 rounded-lg hover:brightness-110 transition-all duration-200 active:scale-95"
@@ -666,6 +676,25 @@ const App: React.FC = () => {
                 />
             )}
         </Suspense>
+        <AgentChatPanel
+            isOpen={isChatOpen}
+            onClose={() => setIsChatOpen(false)}
+            messages={chatMessages}
+            isSending={isSending}
+            onSend={async (msg) => {
+                const id = `m${Date.now()}`;
+                setChatMessages((m) => [...m, { id, role: 'user', content: msg }]);
+                setIsSending(true);
+                try {
+                    const resp = await api.chatWithAgent(msg);
+                    setChatMessages((m) => [...m, { id: `${id}-r`, role: 'assistant', content: resp.content }]);
+                } catch {
+                    setChatMessages((m) => [...m, { id: `${id}-e`, role: 'assistant', content: 'Erro ao obter resposta.' }]);
+                } finally {
+                    setIsSending(false);
+                }
+            }}
+        />
     </div>
   );
 };

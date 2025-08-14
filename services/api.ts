@@ -226,6 +226,32 @@ let scheduleProposals: ScheduleProposal[] = [];
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 export const api = {
+  // AI Agent chat: returns mocked assistant answer for now
+  async chatWithAgent(message: string) {
+    await delay(300);
+    // TODO: integrate with local LLM or rule-based engine
+    return {
+      role: 'assistant',
+      content: `Entendi: "${message}". (Resposta simulada — integre seu motor de IA aqui).`
+    };
+  },
+
+  // Bulk update entries (schedule & workloads)
+  async bulkUpdateEntries(updates: { id: string; changes: Partial<ScheduleEntry> }[]) {
+    await delay(200);
+    const updated: ScheduleEntry[] = [];
+    updates.forEach(({ id, changes }) => {
+      scheduleEntries = scheduleEntries.map(entry => {
+        if (entry.id === id) {
+          const newEntry = { ...entry, ...changes };
+          updated.push(newEntry);
+          return newEntry;
+        }
+        return entry;
+      });
+    });
+    return updated;
+  },
   async fetchInitialData() {
     await delay(10);
     // if (Math.random() > 0.8) throw new Error("Falha ao carregar dados!");
